@@ -1,0 +1,83 @@
+name: Render Push Card
+
+on:
+  repository_dispatch:
+    types: [render-push-card]
+  workflow_dispatch:
+    inputs:
+      body_file:
+        description: 'payload JSON 文件路径（仓库内），默认 push_card_payload.json'
+        required: false
+        default: 'push_card_payload.json'
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Playwright + Chromium
+        run: |
+          python -m pip install --quiet playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Build payload
+        id: payload
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            python - <<'PY'
+          import json, os
+          c = json.loads(os.environ.get('CLIENT_PAYLOAD') or '{}')
+          # client_payload 直接带 body/date/ts；缺失时回退到仓库内 payload 文件
+          payload = {
+            'title': c.get('title') or '',
+            'body': c.get('body') or '',
+            'date': c.get('date') or '',
+            'ts': c.get('ts') or '',
+            'source': c.get('source') or 'airscript',
+          }
+          if not payload['body']:
+            try:
+              with open('push_card_payload.json', encoding='utf-8') as f:
+                payload = json.load(f)
+            except Exception:
+              pass
+          with open('push_card_payload.json', 'w', encoding='utf-8') as f:
+            json.dump(payload, f, ensure_ascii=False, indent=1)
+          print('[payload] body_len=%d date=%s' % (len(payload.get('body') or ''), payload.get('date')))
+          PY
+          else
+            python - <<'PY'
+          import json
+          with open('${{ github.event.inputs.body_file }}', encoding='utf-8') as f:
+            p = json.load(f)
+          print('[payload] body_len=%d date=%s' % (len(p.get('body') or ''), p.get('date')))
+          PY
+          fi
+        env:
+          CLIENT_PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+
+      - name: Render card
+        run: python render_push_card.py push_card_payload.json
+
+      - name: Commit image
+        shell: bash
+        run: |
+          git config user.name 'quant-bot'
+          git config user.email 'bot@users.noreply.github.com'
+          git add push_card_latest.png push_card_payload.json
+          if git diff --cached --quiet; then
+            echo 'no change, skip commit'
+          else
+            git commit -m 'auto: refresh push card'
+            git push
+          fi
