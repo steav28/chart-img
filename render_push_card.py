@@ -194,7 +194,7 @@ def build_html(payload):
 <style>
 * { box-sizing: border-box; }
 body { margin:0; padding:16px; width:%dpx; background:#f6f7f9;
-  font-family:-apple-system,"Segoe UI","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  font-family:"Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji",-apple-system,"Segoe UI","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
   color:#1a1d24; -webkit-font-smoothing:antialiased; }
 .card { background:#fff; border-radius:14px; padding:18px 18px 20px;
   box-shadow:0 2px 10px rgba(0,0,0,.06); }
